@@ -1,0 +1,180 @@
+---
+title: "Geospatial Analysis of Canadian Wildfire Impacts: A Multi-sensor Approach"
+author: 
+  - "Joshua Brinks"
+  - "Juan Martinez"
+format: 
+    html
+---
+
+## Overview
+
+In this lesson, we will introduce you to 3 public health and air quality datasets. These include the EPA's Toxic Release Inventory (TRI), the EPA's Integrated Compliance Information System for Air (ICIS-AIR), and the CDC's PLACES health outcomes dataset. You will learn how to form queries and retrieve each dataset from their respective API, process the returned object into a useable format, create visualizations and perform simple analysis. You will also use NASA's Social Vulnerability Index (SVI) to examine socioeconomic patterns in the greater Detroit metropolitan area and explore relationships with public health.
+
+::: {.callout-tip style="color: #5a7a2b;"}
+## Programming Reminder
+
+This lesson uses the R programming environment.
+:::
+
+## Learning Objectives
+
+After completing this lesson, you should be able to:
+
+## Introduction
+
+## Analysis
+
+### Initial Data Processing & Study Area Definition
+
+- Define spatial extent around Yellowknife
+- Create temporal bounds for analysis (Summer 2023)
+- Set up NASA Earthdata authentication credentials
+- Configure API access tokens and endpoints
+- Standardize all data to common CRS and resolution
+- Set up analysis zones (urban core, suburban, wildland interface)
+
+### Fire Progression Analysis
+
+#### Data Acquisition
+
+- Access FIRMS API for active fire data
+- Query historical fire records through NASA FIRMS API
+- Download raw fire detection data for specified timeframe
+- Validate data completeness
+
+#### Analysis Steps
+
+- Process FIRMS hotspots chronologically
+- Create daily fire perimeter estimates
+- Calculate rate of spread
+- Identify major fire fronts
+- Generate progression maps
+
+### Smoke Plume Analysis
+
+#### Data Acquisition
+
+- Access GOES imagery through NOAA API
+- Query smoke product data
+- Download relevant bands and metadata
+- Validate temporal coverage
+
+#### Analysis Steps
+
+- Process GOES smoke data
+- Calculate smoke density metrics
+- Track plume movement
+- Assess air quality impacts by zone
+- Create temporal animations of smoke spread
+
+### Burn Severity Assessment
+
+#### Data Acquisition
+
+- Access VIIRS data through NASA LAADS DAAC API
+- Query MODIS burn products through AppEEARS API
+- Download burn severity indices
+- Validate spatial coverage
+
+#### Analysis Steps
+
+- Process VIIRS/MODIS burn scar data
+- Calculate burn severity indices
+- Classify severity zones
+- Quantify total burned area
+- Compare with ground validation data
+
+### Infrastructure Risk & Impact Analysis
+
+#### Pre-fire Infrastructure Baseline
+
+##### Data Acquisition
+
+- Query OpenStreetMap API for building footprints
+- Access Microsoft Building Footprints API
+- Download local cadastral data where available
+- Validate building dataset completeness
+
+##### Analysis Steps
+
+- Map building distribution
+- Classify building types/usage
+- Identify critical infrastructure
+- Create infrastructure density maps
+
+#### Fire Exposure Analysis
+
+##### Data Acquisition
+
+- Integrate real-time FIRMS API data
+- Access evacuation zone boundaries
+- Query road network data through OSM API
+
+##### Analysis Steps
+
+- Calculate distance metrics to active fires
+- Generate time-based risk zones
+- Assess evacuation route vulnerability
+- Create exposure indices
+
+#### Post-fire Impact Assessment
+
+##### Data Acquisition
+
+- Access post-event satellite imagery through Planet API (if available)
+- Query updated building footprint data
+- Download post-fire road network status
+
+##### Analysis Steps
+
+- Identify buildings within burn scars
+- Calculate damage probability metrics
+- Assess infrastructure accessibility
+- Quantify impacted areas
+
+### Integration & Synthesis
+
+#### Multi-criteria Analysis
+
+- Combine fire progression with building exposure
+- Integrate smoke impacts with population density
+- Create composite risk maps
+- Generate vulnerability indices
+
+#### Temporal Pattern Analysis
+
+- Analyze fire spread rates relative to infrastructure
+- Track cumulative impacts over time
+- Assess effectiveness of fire breaks/barriers
+- Evaluate evacuation timing relative to fire progression
+
+#### Statistical Analysis
+
+- Calculate summary statistics by zone
+- Perform spatial pattern analysis
+- Generate impact metrics
+- Assess uncertainties
+
+### Validation & Uncertainty
+
+- Compare results with ground observations
+- Assess data quality limitations
+- Calculate confidence intervals
+- Document assumptions and constraints
+
+### Visualization & Communication
+
+#### Static Maps
+
+- Create multi-layer damage assessment maps
+- Generate time series plots
+- Develop summary statistics visualizations
+- Design publication-quality figures
+
+#### Interactive Elements
+
+- Build dynamic time sliders
+- Create clickable building information
+- Develop linked views of multiple metrics
+- Generate animated progression maps
