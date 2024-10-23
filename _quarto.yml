@@ -15,11 +15,6 @@ code-block-bg: true
 code-block-border-left: "#315c86"
 keep-ipynb: true
 lightbox: true
-df-print: paged
-code-block-bg: true
-code-block-border-left: "#315c86"
-format:
-    html
 execute:
   warning: false
 website:
