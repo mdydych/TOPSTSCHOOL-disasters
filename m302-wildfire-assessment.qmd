@@ -206,12 +206,6 @@ ggplot2::ggplot() +
 Setup
 
 ```{r}
-# Load required packages
-library(sf)
-library(ggplot2)
-library(httr2)
-library(dplyr)
-
   # Create search area and get bounding box
   search_area <- sf::st_buffer(yk_boundary, 50000)
   search_area_wgs84 <- sf::st_transform(search_area, 4326)
@@ -377,6 +371,10 @@ print(p1)
 print(p2)
 print(p3)
 stats_table
+```
+
+```{r}
+
 ```
 
 ##### Fire progress animation.
