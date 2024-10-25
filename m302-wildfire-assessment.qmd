@@ -9,8 +9,6 @@ format:
 
 ## Overview
 
-
-
 ::: {.callout-tip style="color: #5a7a2b;"}
 ## Programming Reminder
 
@@ -131,12 +129,70 @@ Advanced Components (If time/resources permit):
 
 ### Initial Data Processing & Study Area Definition
 
+```{r}
+Sys.setenv(
+  EARTHDATA_USER = "jbrinks@isciences.com",
+  EARTHDATA_PASSWORD = "fU.Xe_T56que.h_",
+  FIRMS_API_KEY = "9a7258f5b04a82bccefd87cdeb2faefb"
+)
+```
+
+
 - Define spatial extent around Yellowknife
-- Create temporal bounds for analysis (Summer 2023)
-- Set up NASA Earthdata authentication credentials
-- Configure API access tokens and endpoints
-- Standardize all data to common CRS and resolution
-- Set up analysis zones (urban core, suburban, wildland interface)
+
+```{r}
+# Create a data directory if it doesn't exist
+if (!base::dir.exists("data")) {
+  base::dir.create("data")
+}
+
+# Download Yellowknife municipal boundary
+boundary_url <- "https://opendata.yellowknife.ca/home/ServeFile/8812810a-8f07-4e83-b086-9f43e2f93aa4?FileType=7"
+
+# Perform GET request with httr
+res <- httr::GET(
+  url = boundary_url,
+  httr::write_disk("data/yellowknife_boundary.zip", overwrite = TRUE),
+  httr::verbose()
+)
+
+# Check if download was successful
+if (httr::status_code(res) == 200) {
+  base::message("Download successful")
+} else {
+  base::stop("Failed to download file")
+}
+
+# Unzip the file
+utils::unzip("data/yellowknife_boundary.zip", 
+             exdir = "data/yellowknife_boundaries")
+
+# Read the municipal boundary layer
+# Note: Data is already in UTM Zone 11N (EPSG:26911)
+yk_boundary <- sf::st_read(
+  "data/yellowknife_boundaries/yk_Municipal_Boundary_gdb.gdb", 
+  layer = "yk_municipal_boundary"
+) |> 
+  base::identity()
+
+# Examine the structure of the boundary object
+utils::str(yk_boundary)
+
+# Create a basic map of our study area
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = yk_boundary, 
+                   fill = "lightblue", 
+                   color = "black") +
+  ggplot2::theme_minimal() +
+  ggplot2::labs(
+    title = "Yellowknife Municipal Boundary",
+    subtitle = paste0("Municipal Area: ", 
+                     base::round(sf::st_area(yk_boundary)/1000000, 2), 
+                     " sq km"),
+    caption = "Data source: City of Yellowknife Open Data Portal"
+  ) +
+  ggplot2::coord_sf()
+```
 
 ### Fire Progression Analysis
 
@@ -146,6 +202,186 @@ Advanced Components (If time/resources permit):
 - Query historical fire records through NASA FIRMS API
 - Download raw fire detection data for specified timeframe
 - Validate data completeness
+
+Setup
+
+```{r}
+# Load required packages
+library(sf)
+library(ggplot2)
+library(httr2)
+library(dplyr)
+
+  # Create search area and get bounding box
+  search_area <- sf::st_buffer(yk_boundary, 50000)
+  search_area_wgs84 <- sf::st_transform(search_area, 4326)
+  bbox <- sf::st_bbox(search_area_wgs84) |>
+    base::round(4)
+
+  # Download satellite imagery for our area
+  # Using 'esri.worldimagery' for satellite imagery
+  basemap_tiles <- maptiles::get_tiles(
+    search_area_wgs84,
+    provider = "Esri.WorldImagery",
+    zoom = 11  # Adjust zoom level as needed
+  )
+
+  # Get FIRMS data (same as before)
+  firms_url <- base::sprintf(
+    "https://firms.modaps.eosdis.nasa.gov/api/area/csv/%s/VIIRS_NOAA20_NRT/%s,%s,%s,%s/10/2023-08-10",
+    Sys.getenv("FIRMS_API_KEY"),
+    bbox["xmin"], bbox["ymin"],
+    bbox["xmax"], bbox["ymax"]
+  )
+  resp <- httr2::request(firms_url) |>
+    httr2::req_perform()
+
+  # Process FIRMS data
+  firms_points <- httr2::resp_body_string(resp) |>
+    textConnection() |>
+    utils::read.csv() |>
+    sf::st_as_sf(
+      coords = c("longitude", "latitude"),
+      crs = 4326
+    ) |> 
+    sf::st_transform(sf::st_crs(yk_boundary))
+  
+  # Add proper datetime field and date
+  firms_points$datetime <- as.POSIXct(
+    paste(firms_points$acq_date, 
+          sprintf("%04d", firms_points$acq_time)),
+    format = "%Y-%m-%d %H%M",
+    tz = "UTC"
+  )
+  firms_points$date <- as.Date(firms_points$acq_date)
+  
+  # Calculate daily statistics
+  daily_stats <- firms_points |>
+    as.data.frame() |>
+    dplyr::group_by(date) |>
+    dplyr::summarise(
+      detections = dplyr::n(),
+      mean_frp = mean(frp),
+      max_frp = max(frp),
+      total_frp = sum(frp)
+    )
+```
+
+Visuals
+```{r}
+  
+  # Create main static visualization
+  p1 <- ggplot2::ggplot() +
+    tidyterra::geom_spatraster_rgb(data = basemap_tiles) +
+    ggplot2::geom_sf(data = search_area, 
+                     fill = NA, 
+                     color = "gray60", 
+                     linetype = "dashed") +
+    ggplot2::geom_sf(data = yk_boundary, 
+                     fill = NA, 
+                     color = "#00BFFF", 
+                     linewidth = 1.2) +
+    ggplot2::geom_sf(data = firms_points,
+                     ggplot2::aes(color = frp),
+                     alpha = 0.7,
+                     size = 2) +
+    ggplot2::scale_color_gradientn(
+      colors = c("orange", "orange red", "red", "dark red", "purple"),
+      name = "Fire Radiative\nPower (MW)"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = "Yellowknife Fire Detections",
+      subtitle = paste("August 10-23, 2023\nTotal detections:", nrow(firms_points)),
+      caption = "Data: VIIRS 375m from NOAA-20 satellite"
+    )
+  
+  # Previous code remains the same until the temporal plots
+
+# Define evacuation date
+evac_date <- as.Date("2023-08-16")
+
+# Create temporal progression plot
+p2 <- ggplot2::ggplot(daily_stats, ggplot2::aes(x = date)) +
+    ggplot2::geom_vline(xintercept = evac_date, 
+                        color = "purple", 
+                        linetype = "dashed",
+                        alpha = 0.85,
+                        linewidth = 1.5) +
+    ggplot2::geom_line(ggplot2::aes(y = detections), color = "#00BFFF", linewidth = 1) +
+    ggplot2::geom_point(ggplot2::aes(y = detections), color = "#00BFFF", size = 3) +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = "Daily Fire Detections",
+      subtitle = "Purple line indicates evacuation date (Aug 16)",
+      y = "Number of detections",
+      x = "Date"
+    )
+
+# Create FRP intensity plot with proper legend
+p3 <- ggplot2::ggplot(daily_stats, ggplot2::aes(x = date)) +
+    ggplot2::geom_vline(xintercept = evac_date, 
+                        color = "purple", 
+                        linetype = "dashed",
+                        alpha = 0.85,
+                        linewidth = 1.5) +
+    ggplot2::geom_line(ggplot2::aes(y = mean_frp, color = "Mean FRP"), linewidth = 1) +
+    ggplot2::geom_point(ggplot2::aes(y = mean_frp, color = "Mean FRP"), size = 3) +
+    ggplot2::geom_line(ggplot2::aes(y = max_frp, color = "Max FRP"), linewidth = 1) +
+    ggplot2::geom_point(ggplot2::aes(y = max_frp, color = "Max FRP"), size = 3) +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = "Fire Radiative Power Over Time",
+      subtitle = "Purple line indicates evacuation date (Aug 16)",
+      y = "Fire Radiative Power (MW)",
+      x = "Date"
+    ) +
+    ggplot2::scale_color_manual(
+      values = c("Mean FRP" = "#00BFFF", "Max FRP" = "#0040ff"),
+      name = "Metric"
+    )
+
+# Create summary statistics table using kableExtra
+stats_df <- data.frame(
+  Metric = c(
+    "Date Range",
+    "Total Detections",
+    "Mean FRP",
+    "Max FRP",
+    "Peak Detection Date",
+    "Peak Daily Detections"
+  ),
+  Value = c(
+    paste(min(firms_points$date), "to", max(firms_points$date)),
+    as.character(nrow(firms_points)),
+    paste(round(mean(firms_points$frp), 2), "MW"),
+    paste(round(max(firms_points$frp), 2), "MW"),
+    as.character(daily_stats$date[which.max(daily_stats$detections)]),
+    as.character(daily_stats$detections[which.max(daily_stats$detections)])
+  )
+)
+
+# Create formatted HTML table
+stats_table <- knitr::kable(stats_df, 
+                           format = "html",
+                           caption = "Yellowknife Fire Analysis Summary") |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE,
+    position = "left"
+  ) |>
+  kableExtra::row_spec(0, bold = TRUE)
+
+# Display results
+print(p1)
+print(p2)
+print(p3)
+stats_table
+```
+
+##### Fire progress animation.
+
+Could not get animation working inside the quarto. Check scratch/m302-stratch.R for working code.
 
 #### Analysis Steps
 
