@@ -7,17 +7,6 @@ library(ggplot2)
 # This only needs to be done once per R session
 # Assumes you have already run: edulog_setup()
 
-# environment creds----
-Sys.setenv(
-  EARTHDATA_USER = "jbrinks@isciences.com",
-  EARTHDATA_PASSWORD = "fU.Xe_T56que.h_",
-  FIRMS_API_KEY = "9a7258f5b04a82bccefd87cdeb2faefb"
-)
-
-earthdatalogin::edl_netrc(
-  username = "jbrinks@isciences.com",
-  password = "fU.Xe_T56que.h_")
-
 # fire progress animate----
 
   # Load additional packages
@@ -269,3 +258,145 @@ earthdatalogin::edl_netrc(
   base::cat("- Area:", round(comparison_perimeters$area_km2[2], 2), "km²\n")
   base::cat("- Number of detections:", comparison_perimeters$n_points[2], "\n")
   base::cat("- Mean FRP:", round(comparison_perimeters$mean_frp[2], 2), "MW\n")
+
+  # hulls with clustering----
+  # Load additional package
+  library(dbscan)
+
+  # Function to create clustered fire perimeters
+  create_clustered_perimeters <- function(points, date, eps = 5000) {  # eps in meters
+    # Filter points for the given date
+    daily_points <- points |>
+      dplyr::filter(date == !!date)
+
+    if (base::nrow(daily_points) < 3) {
+      base::return(NULL)
+    }
+
+    # Get coordinates for clustering
+    coords <- sf::st_coordinates(daily_points)
+
+    # Perform DBSCAN clustering
+    clusters <- dbscan::dbscan(coords, eps = eps, minPts = 3)
+
+    # Add cluster information to points
+    daily_points$cluster <- clusters$cluster
+
+    # Create separate hull for each cluster
+    hulls <- daily_points |>
+      dplyr::filter(cluster > 0) |>  # Remove noise points (cluster = 0)
+      dplyr::group_by(cluster) |>
+      dplyr::group_map(function(cluster_points, cluster_id) {
+        if (base::nrow(cluster_points) < 3) {
+          base::return(NULL)
+        }
+
+        coords <- sf::st_coordinates(cluster_points)
+        hull <- concaveman::concaveman(coords,
+                                       concavity = 1,
+                                       length_threshold = 1)
+
+        current_poly <- sf::st_polygon(list(hull)) |>
+          sf::st_sfc(crs = sf::st_crs(points)) |>
+          sf::st_sf()
+
+        current_area <- base::as.numeric(
+          units::set_units(sf::st_area(current_poly), "km^2")
+        )
+
+        current_poly |>
+          dplyr::mutate(
+            date = date,
+            cluster = cluster_id$cluster,
+            n_points = base::nrow(cluster_points),
+            mean_frp = base::mean(cluster_points$frp),
+            area_km2 = current_area
+          )
+      })
+
+    # Combine all hulls for this date
+    hulls_combined <- base::do.call(rbind, hulls)
+
+    base::return(hulls_combined)
+  }
+
+  # Create clustered perimeters for max area and max points dates
+  max_stats <- base::list(
+    area_date = fire_perimeters |>
+      dplyr::arrange(dplyr::desc(area_km2)) |>
+      dplyr::slice(1) |>
+      dplyr::pull(date),
+    points_date = fire_perimeters |>
+      dplyr::arrange(dplyr::desc(n_points)) |>
+      dplyr::slice(1) |>
+      dplyr::pull(date)
+  )
+
+  # Get clustered perimeters for comparison dates
+  comparison_clusters <- base::rbind(
+    create_clustered_perimeters(firms_points, max_stats$area_date) |>
+      dplyr::mutate(type = "Maximum Hull Area"),
+    create_clustered_perimeters(firms_points, max_stats$points_date) |>
+      dplyr::mutate(type = "Maximum Detection Count")
+  )
+
+  # Get points for these dates
+  comparison_points <- firms_points |>
+    dplyr::filter(date %in% c(max_stats$area_date, max_stats$points_date)) |>
+    dplyr::mutate(
+      type = dplyr::case_when(
+        date == max_stats$area_date ~ "Maximum Hull Area",
+        date == max_stats$points_date ~ "Maximum Detection Count"
+      )
+    )
+
+  # Create faceted comparison plot with clustered hulls
+  p4c <- ggplot2::ggplot() +
+    # Base layers
+    ggplot2::geom_sf(data = search_area,
+                     fill = NA,
+                     color = "gray60",
+                     linetype = "dashed") +
+    ggplot2::geom_sf(data = yk_boundary,
+                     fill = NA,
+                     color = "#00BFFF",
+                     linewidth = 1.2) +
+    # Add clustered hull polygons
+    ggplot2::geom_sf(data = comparison_clusters,
+                     ggplot2::aes(fill = factor(cluster)),
+                     alpha = 0.3) +
+    # Add VIIRS points
+    ggplot2::geom_sf(data = comparison_points,
+                     ggplot2::aes(color = frp),
+                     size = 2,
+                     alpha = 0.7) +
+    # Facet by type
+    ggplot2::facet_wrap(~type) +
+    # Style
+    ggplot2::scale_color_viridis_c(
+      name = "Fire Radiative\nPower (MW)",
+      option = "inferno"
+    ) +
+    ggplot2::scale_fill_discrete(name = "Fire Complex") +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = "Comparison of Fire Complexes",
+      subtitle = base::paste("Dates:", format(max_stats$area_date, "%B %d"),
+                             "vs", format(max_stats$points_date, "%B %d")),
+      caption = "Note: Points clustered using DBSCAN algorithm (eps = 5km)"
+    )
+
+  # Display plot
+  base::print(p4c)
+
+  # Print statistics about clusters
+  base::cat("\nCluster Statistics:\n")
+  for (date_type in base::unique(comparison_clusters$type)) {
+    clusters_date <- comparison_clusters |>
+      dplyr::filter(type == date_type)
+
+    base::cat("\n", date_type, ":\n")
+    base::cat("Number of distinct fire complexes:", base::length(base::unique(clusters_date$cluster)), "\n")
+    base::cat("Total area across all complexes:", base::round(base::sum(clusters_date$area_km2), 2), "km²\n")
+    base::cat("Largest single complex:", base::round(base::max(clusters_date$area_km2), 2), "km²\n")
+  }
