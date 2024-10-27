@@ -373,14 +373,6 @@ print(p3)
 stats_table
 ```
 
-```{r}
-
-```
-
-##### Fire progress animation.
-
-Could not get animation working inside the quarto. Check scratch/m302-stratch.R for working code.
-
 #### Analysis Steps
 
 - Process FIRMS hotspots chronologically
@@ -389,22 +381,324 @@ Could not get animation working inside the quarto. Check scratch/m302-stratch.R 
 - Identify major fire fronts
 - Generate progression maps
 
+##### Fire progress animation.
+
+Could not get animation working inside the quarto. Check scratch/m302-scratch.R for working code.
+
+```{r}
+# Create perimeters with adjusted parameters
+create_fire_perimeters <- function(points,
+                                   date,
+                                   concavity = 1,
+                                   threshold = 1) {
+  daily_points <- points |>
+    dplyr::filter(date == !!date)
+  
+  if (base::nrow(daily_points) < 3) {
+    base::return(NULL)
+  }
+  
+  coords <- sf::st_coordinates(daily_points)
+  hull <- concaveman::concaveman(coords, concavity = concavity, length_threshold = threshold)
+  
+  polygon_sf <- sf::st_polygon(list(hull)) |>
+    sf::st_sfc(crs = sf::st_crs(points)) |>
+    sf::st_sf()
+  
+  perimeter <- polygon_sf |>
+    dplyr::mutate(
+      date = date,
+      n_points = base::nrow(daily_points),
+      mean_frp = base::mean(daily_points$frp),
+      area_km2 = base::as.numeric(units::set_units(sf::st_area(polygon_sf), "km^2"))
+    )
+  
+  base::return(perimeter)
+}
+
+# Create daily perimeters
+unique_dates <- base::unique(firms_points$date)
+fire_perimeters <-
+  base::do.call(rbind,
+                base::lapply(unique_dates, function(d)
+                  create_fire_perimeters(firms_points, d, 1, 0.01)))
+
+max_stats <- base::list(
+  area_date = fire_perimeters |>
+    dplyr::arrange(dplyr::desc(area_km2)) |>
+    dplyr::slice(1) |>
+    dplyr::pull(date),
+  points_date = fire_perimeters |>
+    dplyr::arrange(dplyr::desc(n_points)) |>
+    dplyr::slice(1) |>
+    dplyr::pull(date)
+)
+
+# Create clustered perimeters for all dates
+all_clustered_perimeters <- base::do.call(rbind,
+  base::lapply(unique_dates, function(d) {
+    perims <- create_clustered_perimeters(firms_points, d)
+    if (!base::is.null(perims)) {
+      perims$date <- d
+    }
+    return(perims)
+  })
+)
+
+# Create progression plot with layered hulls and proper date handling
+p4_progression <- ggplot2::ggplot() +
+  tidyterra::geom_spatraster_rgb(data = basemap_tiles) +
+  ggplot2::geom_sf(
+    data = search_area,
+    fill = NA,
+    color = "#00BFFF",
+    linetype = "dashed"
+  ) +
+  ggplot2::geom_sf(
+    data = yk_boundary,
+    fill = NA,
+    color = "#00BFFF",
+    linewidth = 1.2
+  ) +
+  # Add hulls in reverse chronological order
+  ggplot2::geom_sf(
+    data = all_clustered_perimeters |>
+      dplyr::arrange(dplyr::desc(date)),  # Reverse chronological order
+    ggplot2::aes(fill = as.Date(date)),  # Convert to Date explicitly
+    alpha = 0.4,
+    linewidth = 0.8
+  ) +
+  ggplot2::scale_fill_viridis_c(
+    name = "Date",
+    option = "magma",
+    labels = scales::date_format("%B %d"),
+    breaks = scales::breaks_width("2 days")  # Show date every 2 days
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::labs(
+    title = "Fire Complex Progression",
+    subtitle = base::paste(format(base::min(unique_dates), "%B %d"), 
+                          "to", 
+                          format(base::max(unique_dates), "%B %d")),
+    caption = "Note: Clustered using DBSCAN algorithm (eps = 3km)\nEarlier dates displayed on top"
+  )
+
+# Display progression plot
+base::print(p4_progression)
+
+# Create dataset for faceted plot
+comparison_perimeters <- fire_perimeters |>
+  dplyr::filter(date %in% c(max_stats$area_date, max_stats$points_date)) |>
+  dplyr::mutate(
+    type = dplyr::case_when(
+      date == max_stats$area_date ~ "Maximum Hull Area",
+      date == max_stats$points_date ~ "Maximum Detection Count"
+    )
+  )
+
+# Get corresponding VIIRS points for these dates
+comparison_points <- firms_points |>
+  dplyr::filter(date %in% c(max_stats$area_date, max_stats$points_date)) |>
+  dplyr::mutate(
+    type = dplyr::case_when(
+      date == max_stats$area_date ~ "Maximum Hull Area",
+      date == max_stats$points_date ~ "Maximum Detection Count"
+    )
+  )
+
+# Function to create clustered fire perimeters
+create_clustered_perimeters <- function(points, date, eps = 3000) {
+  # eps in meters
+  # Filter points for the given date
+  daily_points <- points |>
+    dplyr::filter(date == !!date)
+  
+  if (base::nrow(daily_points) < 3) {
+    base::return(NULL)
+  }
+  
+  # Get coordinates for clustering
+  coords <- sf::st_coordinates(daily_points)
+  
+  # Perform DBSCAN clustering
+  clusters <- dbscan::dbscan(coords, eps = eps, minPts = 3)
+  
+  # Add cluster information to points
+  daily_points$cluster <- clusters$cluster
+  
+  # Create separate hull for each cluster
+  hulls <- daily_points |>
+    dplyr::filter(cluster > 0) |>  # Remove noise points (cluster = 0)
+    dplyr::group_by(cluster) |>
+    dplyr::group_map(function(cluster_points, cluster_id) {
+      if (base::nrow(cluster_points) < 3) {
+        base::return(NULL)
+      }
+      
+      coords <- sf::st_coordinates(cluster_points)
+      hull <- concaveman::concaveman(coords,
+                                     concavity = 3,
+                                     length_threshold = 1)
+      
+      current_poly <- sf::st_polygon(list(hull)) |>
+        sf::st_sfc(crs = sf::st_crs(points)) |>
+        sf::st_sf()
+      
+      current_area <- base::as.numeric(units::set_units(sf::st_area(current_poly), "km^2"))
+      
+      current_poly |>
+        dplyr::mutate(
+          date = date,
+          cluster = cluster_id$cluster,
+          n_points = base::nrow(cluster_points),
+          mean_frp = base::mean(cluster_points$frp),
+          area_km2 = current_area
+        )
+    })
+  
+  # Combine all hulls for this date
+  hulls_combined <- base::do.call(rbind, hulls)
+  
+  base::return(hulls_combined)
+}
+
+# Get clustered perimeters for comparison dates
+comparison_clusters <- base::rbind(
+  create_clustered_perimeters(firms_points, max_stats$area_date) |>
+    dplyr::mutate(type = "Maximum Hull Area"),
+  create_clustered_perimeters(firms_points, max_stats$points_date) |>
+    dplyr::mutate(type = "Maximum Detection Count")
+)
+
+# Modify the facet labels to include dates
+comparison_clusters <- comparison_clusters |>
+  dplyr::mutate(
+    type = dplyr::case_when(
+      type == "Maximum Hull Area" ~
+        base::paste("Maximum Hull Area -", format(max_stats$area_date, "%B %d")),
+      type == "Maximum Detection Count" ~
+        base::paste(
+          "Maximum Detection Count -",
+          format(max_stats$points_date, "%B %d")
+        )
+    )
+  )
+
+# Update points labels to match
+comparison_points <- comparison_points |>
+  dplyr::mutate(
+    type = dplyr::case_when(
+      type == "Maximum Hull Area" ~
+        base::paste("Maximum Hull Area -", format(max_stats$area_date, "%B %d")),
+      type == "Maximum Detection Count" ~
+        base::paste(
+          "Maximum Detection Count -",
+          format(max_stats$points_date, "%B %d")
+        )
+    )
+  )
+
+# Create faceted comparison plot with clustered hulls
+p4c <- ggplot2::ggplot() +
+  # Base layers
+  tidyterra::geom_spatraster_rgb(data = basemap_tiles) +
+  ggplot2::geom_sf(
+    data = search_area,
+    fill = NA,
+    color = "#00BFFF",
+    linetype = "dashed"
+  ) +
+  ggplot2::geom_sf(
+    data = yk_boundary,
+    fill = NA,
+    color = "#00BFFF",
+    linewidth = 1.2
+  ) +
+  # Add clustered hull polygons
+  ggplot2::geom_sf(
+    data = comparison_clusters,
+    ggplot2::aes(fill = factor(cluster)),
+    alpha = 0.60,
+    linewidth = 1.2,
+    show.legend = FALSE
+  ) +  # Remove fire complex legend
+  # Add VIIRS points
+  ggplot2::geom_sf(
+    data = comparison_points,
+    color = "darkred",
+    size = 1,
+    alpha = 0.25
+  ) +
+  # Facet by type
+  ggplot2::facet_wrap( ~ type) +
+  # Style
+  ggplot2::scale_color_viridis_c(name = "Fire Radiative\nPower (MW)", option = "inferno") +
+  ggplot2::theme_minimal() +
+  ggplot2::labs(title = "Comparison of Fire Complexes", caption = "Note: Points clustered using DBSCAN algorithm (eps = 5km)")
+
+# Display plot
+base::print(p4c)
+
+# Print statistics about clusters
+base::cat("\nCluster Statistics:\n")
+for (date_type in base::unique(comparison_clusters$type)) {
+  clusters_date <- comparison_clusters |>
+    dplyr::filter(type == date_type)
+  
+  base::cat("\n", date_type, ":\n")
+  base::cat("Number of distinct fire complexes:",
+            base::length(base::unique(clusters_date$cluster)),
+            "\n")
+  base::cat("Total area across all complexes:",
+            base::round(base::sum(clusters_date$area_km2), 2),
+            "km²\n")
+  base::cat("Largest single complex:",
+            base::round(base::max(clusters_date$area_km2), 2),
+            "km²\n")
+}
+```
+
+
 ### Smoke Plume Analysis
 
-#### Data Acquisition
+#### Data Acquisition and Processing
+- Access GOES-18 (West) for local Yellowknife analysis
+  - Better viewing angle for source region
+  - Higher accuracy for initial plume development
+  - Coverage of western spread
 
-- Access GOES imagery through NOAA API
-- Query smoke product data
-- Download relevant bands and metadata
-- Validate temporal coverage
+- Access GOES-16 (East) for plume tracking
+  - Coverage of eastern movement
+  - Tracking of impacts into US Midwest
+  - Overlap comparison where available
 
-#### Analysis Steps
+#### Analysis Components
+1. Local Impact Analysis (GOES-18)
+   - AOD values around Yellowknife
+   - Temporal patterns during evacuation period
+   - Relationship to FIRMS detections
 
-- Process GOES smoke data
-- Calculate smoke density metrics
-- Track plume movement
-- Assess air quality impacts by zone
-- Create temporal animations of smoke spread
+2. Plume Progression Analysis (both satellites)
+   - Initial plume development (GOES-18)
+   - Tracking eastward movement (GOES-16)
+   - Extent of smoke coverage
+   - Population centers affected
+
+#### Visualization Approach
+1. Single-satellite views
+   - Local Yellowknife analysis
+   - Regional progression maps
+
+2. Combined satellite products
+   - Merged view where coverage overlaps
+   - Full extent of smoke impact
+   - Time series animations
+
+Would you like me to:
+1. Start implementing any specific section?
+2. Add more detail to the outline?
+3. Focus on a particular analysis component?
+4. Begin with the visualization code?
 
 ### Burn Severity Assessment
 
