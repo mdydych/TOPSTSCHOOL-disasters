@@ -2,17 +2,30 @@
 title: "Geospatial Analysis of Canadian Wildfire Impacts: A Multi-sensor Approach"
 author: 
   - "Joshua Brinks"
-  - "Juan Martinez"
 format: 
     html
 ---
 
 ## Overview
 
-::: {.callout-tip style="color: #5a7a2b;"}
-## Programming Reminder
+In this lesson, we will analyze the 2023 Yellowknife wildfire evacuation using multiple satellite-derived datasets. The analysis integrates active fire detections, smoke plumes, wind patterns, and infrastructure data to understand the complex conditions that led to the evacuation of approximately 20,000 residents. You will learn how to access and process data from NASA's FIRMS (Fire Information for Resource Management System), NOAA's GOES-18 satellite, and VIIRS (Visible Infrared Imaging Radiometer Suite) burned area products. The lesson demonstrates how to combine these datasets to assess evacuation route vulnerability and regional smoke impacts.
 
-This lesson uses the R programming environment.
+Through hands-on analysis, you will work with both near real-time and post-processed satellite products. The integration of these datasets shows how emergency managers can use publicly available data to support evacuation decisions and understand hazard conditions. You will also learn key techniques for processing and visualizing spatial data, including clustering algorithms for fire perimeter detection, smoke plume analysis, and the creation of integrated hazard visualizations.
+
+This lesson emphasizes practical applications of remote sensing data for emergency management, while also exploring the strengths and limitations of different satellite products. By analyzing the Yellowknife evacuation, you will gain experience with workflows that can be applied to other wildfire events and natural hazards.
+
+::: {.callout-warning}
+## Preface: A Note on Data Interpretation and Emergency Management
+
+This lesson uses real data from an evacuation that impacted thousands of residents. While we focus on technical analysis, it's important to remember that wildfire evacuation decisions involve many factors beyond what can be captured in satellite data. The workflows demonstrated here are meant to complement, not replace, the expertise of emergency managers, fire behavior specialists, and local authorities.
+
+The integration of multiple data sources can provide valuable insights, but satellite data has limitations:
+- Cloud cover can obstruct observations
+- Temporal and spatial resolution may miss important changes
+- Data latency may affect real-time decision making
+- Local conditions may differ from satellite-based measurements
+
+Always consider these limitations when using remote sensing data to support emergency management decisions.
 :::
 
 ## Learning Objectives
@@ -97,6 +110,38 @@ The integration of multiple data sources - from active fire detections to smoke 
 The Yellowknife wildfire crisis of 2023 serves as an ideal case study for demonstrating these analytical approaches. In the following analysis, we will explore how different remote sensing products can be integrated to monitor and assess wildfire impacts, particularly in northern communities where traditional ground-based monitoring may be limited. We will demonstrate techniques for processing and analyzing multiple satellite data streams, assessing infrastructure vulnerability, and quantifying fire impacts - the same types of analyses that support real-world emergency response and resource management decisions. This practical application of geospatial analysis techniques provides valuable insights into both the technical methods and their critical role in modern fire management.
 
 ## Analysis
+
+::: {.callout-tip style="color: #5a7a2b;"}
+#### Data Science Review
+
+Before beginning, please note that this lesson uses the R programming language and the following R packages:
+
+- [`sf`](https://r-spatial.github.io/sf/): Essential for handling vector spatial data and manipulation of geographic objects.
+- [`stars`](https://r-spatial.github.io/stars/): Extends spatial functionality to handle raster data and spatiotemporal arrays, particularly useful for satellite imagery.
+- [`osmdata`](https://docs.ropensci.org/osmdata/): Provides interface for OpenStreetMap data, enabling programmatic access to road networks and infrastructure data.
+- [`aws.s3`](https://github.com/cloudyr/aws.s3): Enables direct access to AWS S3 storage, essential for retrieving GOES satellite data.
+- [`httr2`](https://httr2.r-lib.org/): Modern HTTP client for R, used for making API requests and handling responses.
+- [`ncdf4`](https://cirrus.ucsd.edu/~pierce/ncdf/): Interface to Unidata netCDF format, crucial for working with satellite data files.
+- [`concaveman`](https://github.com/joelgombin/concaveman): Implements concave hull algorithms for creating boundaries around point sets.
+- [`dbscan`](https://cran.r-project.org/web/packages/dbscan/): Provides density-based clustering algorithms for spatial point pattern analysis.
+- [`dplyr`](https://dplyr.tidyverse.org/): Part of tidyverse, essential for data manipulation and transformation.
+- [`ggplot2`](https://ggplot2.tidyverse.org/): Creates elegant data visualizations and is the primary plotting tool in this lesson.
+- [`tidyterra`](https://dieghernan.github.io/tidyterra/): Bridges terra spatial objects with tidyverse tools, particularly for visualization.
+- [`terra`](https://rspatial.org/terra/): Advanced package for spatial data handling, particularly raster data processing.
+- [`knitr`](https://yihui.org/knitr/): Generates dynamic reports and handles table formatting.
+- [`kableExtra`](https://haozhu233.github.io/kableExtra/): Enhances table formatting capabilities with additional styling options.
+- [`units`](https://r-quantities.github.io/units/): Handles unit conversions and dimensional analysis in spatial calculations.
+
+If you'd like to learn more about the functions used in this lesson, you can refer to the documentation on their respective websites.
+
+The `sf` package is fundamental for spatial data operations, while `stars` handles raster and spatiotemporal data. `osmdata` enables access to OpenStreetMap data for infrastructure analysis. `aws.s3` and `httr2` are crucial for data access via cloud storage and APIs respectively.
+
+The `ncdf4` package is essential for working with satellite data files, while `concaveman` and `dbscan` provide specialized spatial analysis capabilities. `dplyr` and `ggplot2` form the backbone of data manipulation and visualization, enhanced by `tidyterra` for spatial data integration.
+
+`terra` provides advanced spatial data processing capabilities, particularly for raster analysis. `knitr` and `kableExtra` handle report generation and table formatting, while `units` ensures proper handling of physical quantities and conversions.
+
+Make sure these packages are installed before you begin working with the code in this document.
+:::
 
 ### Initial Data Processing & Study Area Definition
 
@@ -412,8 +457,6 @@ Several key data science concepts are demonstrated in this analysis:
    - Providing clear labels and legends
    - Creating multi-panel visualizations for different aspects of the data
 :::
-
-I'll help restructure the fire complex perimeter analysis section in a similar educational style:
 
 ##### Fire Complex Perimeters
 
@@ -1122,15 +1165,12 @@ Aerosol Optical Depth values can be roughly interpreted as:
 Higher values indicate more particles in the atmospheric column, suggesting thicker smoke plumes and potentially worse air quality.
 :::
 
-I'll help break down the temporal analysis section:
-
 #### Temporal Analysis of AOD Values
 
 To understand how smoke conditions evolved during the evacuation period, we'll analyze AOD values over several days. First, let's create some helper functions to streamline our data processing:
 
 ```{r}
 # Functions for GOES data handling
-# Function to format GOES date components
 goes_date_format <- function(date) {
   list(
     year = format(date, "%Y"),
@@ -1348,7 +1388,7 @@ aod_df <- dplyr::bind_rows(aod_results) |>
   )
 ```
 
-For context, let's provide a reference table for interpreting AOD values in terms of air quality:
+For context, let's provide a reference table for interpreting AOD values in terms of air quality provided by the World Health Organization:
 
 ```{r}
 # Create WHO threshold reference table
@@ -1447,9 +1487,69 @@ When interpreting temporal AOD patterns, consider:
 
 #### Visualizing the Maximum Plume Spread
 
-To understand the full extent of smoke impacts during peak conditions, we'll analyze a larger area around Yellowknife. This broader view helps capture regional smoke transport patterns and identify areas that may have been affected by poor air quality during the evacuation.
+To understand the full spatial extent of smoke impacts, we'll analyze a larger area around Yellowknife during peak smoke conditions. First, let's create a function to process plume data for specific timestamps:
 
-First, we'll define our analysis period around the evacuation date:
+```{r}
+# Function to process plume data for a specific timestamp
+analyze_plume <- function(date, hour, plume_buffer) {
+  # Get GOES file
+  files_df <- get_goes_files(
+    date = date,
+    hour = hour,
+    product = "ABI-L2-AODF",
+    satellite = "goes18"
+  )
+  
+  if (nrow(files_df) == 0) {
+    message("No files found for: ", date, " ", hour, ":00 UTC")
+    return(NULL)
+  }
+  
+  # Get most recent file for timestamp
+  latest_file <- files_df |>
+    dplyr::arrange(desc(LastModified)) |>
+    dplyr::slice(1)
+  
+  # Download and read data
+  url <- construct_url(latest_file$Key, bucket = "noaa-goes18")
+  temp_file <- tempfile(fileext = ".nc")
+  utils::download.file(url, temp_file, mode = "wb", quiet = TRUE)
+  aod_data <- stars::read_stars(temp_file, sub = "AOD", quiet = TRUE)
+  unlink(temp_file)
+  
+  # Transform and crop to plume analysis extent
+  plume_goes <- sf::st_transform(plume_buffer, sf::st_crs(aod_data))
+  plume_aod <- sf::st_crop(aod_data, plume_goes)
+  
+  # Calculate plume statistics
+  values <- as.numeric(plume_aod[[1]])
+  stats <- list(
+    datetime = as.POSIXct(
+      paste(date, sprintf("%02d:00:00", hour)),
+      tz = "UTC"
+    ),
+    mean_aod = mean(values, na.rm = TRUE),
+    max_aod = max(values, na.rm = TRUE),
+    heavy_smoke_area = sum(values > 2, na.rm = TRUE) * 0.0081,  # Approx km² per pixel
+    moderate_smoke_area = sum(values > 1, na.rm = TRUE) * 0.0081,
+    data = plume_aod
+  )
+  
+  return(stats)
+}
+```
+
+::: {.callout-note}
+#### Quantifying Smoke Extent
+
+We classify smoke coverage into two categories:
+- Moderate smoke: AOD > 1 (significant visibility reduction)
+- Heavy smoke: AOD > 2 (severe air quality impacts)
+
+The area calculation (0.0081 km² per pixel) is based on the GOES-R ABI resolution at nadir.
+:::
+
+Now let's analyze a focused period around the evacuation:
 
 ```{r}
 # Define analysis period (3 days centered on evacuation)
@@ -1470,11 +1570,7 @@ analysis_times <- expand.grid(
 
 # Define larger analysis extent (500km radius for plume tracking)
 plume_buffer <- sf::st_buffer(yk_boundary, 500000)  # 500km
-```
 
-Now we'll process the AOD data for all our analysis times:
-
-```{r}
 # Process all timestamps
 plume_results <- lapply(1:nrow(analysis_times), function(i) {
   date <- analysis_times$date[i]
@@ -1485,7 +1581,7 @@ plume_results <- lapply(1:nrow(analysis_times), function(i) {
 })
 ```
 
-To analyze temporal patterns, we'll extract key statistics from our processed data:
+Let's extract statistics and create a time series of plume extent:
 
 ```{r}
 # Extract statistics into data frame
@@ -1500,19 +1596,7 @@ plume_stats <- dplyr::bind_rows(lapply(plume_results, function(x) {
     )
   }
 }))
-```
 
-::: {.callout-note}
-#### Smoke Coverage Categories
-We classify smoke coverage into two categories based on AOD values:
-- Moderate smoke (AOD > 1): Significant visibility reduction
-- Heavy smoke (AOD > 2): Severe air quality impacts
-These thresholds align with established air quality guidelines.
-:::
-
-Let's create a time series visualization showing how smoke extent changed:
-
-```{r}
 # Create time series visualization of plume metrics
 p1_plume <- ggplot2::ggplot(plume_stats) +
   ggplot2::geom_vline(
@@ -1546,7 +1630,7 @@ p1_plume <- ggplot2::ggplot(plume_stats) +
 print(p1_plume)
 ```
 
-Next, let's identify and examine conditions during peak smoke coverage:
+Now let's examine conditions during the peak smoke period:
 
 ```{r}
 # Identify peak smoke period
@@ -1587,11 +1671,7 @@ p2_plume <- ggplot2::ggplot() +
   )
 
 print(p2_plume)
-```
 
-Finally, let's summarize key statistics about the smoke conditions:
-
-```{r}
 # Create summary statistics table
 stats_summary <- data.frame(
   Metric = c(
@@ -1619,32 +1699,14 @@ knitr::kable(stats_summary,
              format = "pipe")
 ```
 
-#### Interpreting Maximum Plume Extent
+::: {.callout-tip style="color: #5a7a2b;"}
+#### Interpreting Plume Extent
 
-When analyzing the maximum plume extent, consider:
-1. Spatial Patterns:
-   - Direction of smoke transport
-   - Areas of highest concentration
-   - Extent of regional impacts
-
-2. Temporal Context:
-   - Timing relative to evacuation
-   - Duration of peak conditions
-   - Rate of change in affected area
-
-3. Impact Assessment:
-   - Total area affected
-   - Severity of conditions
-   - Population centers impacted
-   
-::: {.callout-tip style="color: #9f0b64;"}
-#### Knowledge Check: GOES-18 Smoke Plume
-What does Aerosol Optical Depth (AOD) measure in the context of smoke monitoring?
-
-a) The temperature of the smoke plume
-b) The speed of smoke movement
-c) The degree to which aerosols prevent light transmission through the atmosphere
-d) The chemical composition of smoke
+When analyzing smoke plume extent:
+1. Consider both intensity (AOD values) and spatial coverage
+2. Remember that AOD measures total column aerosol - smoke may be at various heights
+3. Cloud cover can create gaps in the data
+4. The 500km analysis radius helps capture regional-scale impacts
 :::
 
 ### GOES-18 Wind Patterns
@@ -1659,7 +1721,7 @@ For our analysis, we'll focus on winds during the period of peak smoke intensity
 3. Areas where convergent winds may have concentrated smoke
 4. The broader regional transport patterns that affected air quality across the Northwest Territories
 
-First, let's create a function to retrieve and process wind data...
+First, let's create a function to retrieve and process wind data.
 
 ```{r}
 # Function to get wind data for a specific timestamp
@@ -2155,6 +2217,7 @@ a) FIRMS data and weather forecasts only
 b) Wind patterns and smoke plumes only
 c) Integration of fire detections, smoke plumes, wind patterns, and evacuation routes
 d) Burned area analysis only
+:::
 
 ## Conclusion
 
