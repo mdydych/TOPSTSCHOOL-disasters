@@ -4,26 +4,23 @@ author:
   - "Joshua Brinks"
 format: 
     html
+bibliography: wildfires-references.bib
 ---
 
 ## Overview
 
-In this lesson, we will analyze the 2023 Yellowknife wildfire evacuation using multiple satellite-derived datasets. The analysis integrates active fire detections, smoke plumes, wind patterns, and infrastructure data to understand the complex conditions that led to the evacuation of approximately 20,000 residents. You will learn how to access and process data from NASA's FIRMS (Fire Information for Resource Management System), NOAA's GOES-18 satellite, and VIIRS (Visible Infrared Imaging Radiometer Suite) burned area products. The lesson demonstrates how to combine these datasets to assess evacuation route vulnerability and regional smoke impacts.
+In this lesson, we will analyze the 2023 Yellowknife wildfire evacuation using multiple satellite-derived datasets. The analysis integrates active fire detections, smoke plumes, wind patterns, and infrastructure data to understand the complex conditions that led to the evacuation of approximately 20,000 residents. You will learn how to access and process data from NASA's [Fire Information for Resource Management System (FIRMS)](https://firms.modaps.eosdis.nasa.gov/), NOAA's [GOES-18 satellite](https://www.nesdis.noaa.gov/our-satellites/currently-flying/goes-18-launch), and Visible Infrared Imaging Radiometer Suite (VIIRS) [Burned Area Product](https://www.nesdis.noaa.gov/our-satellites/currently-flying/goes-18-launch). The lesson demonstrates how to combine these datasets to assess evacuation route vulnerability and regional smoke impacts.
 
-Through hands-on analysis, you will work with both near real-time and post-processed satellite products. The integration of these datasets shows how emergency managers can use publicly available data to support evacuation decisions and understand hazard conditions. You will also learn key techniques for processing and visualizing spatial data, including clustering algorithms for fire perimeter detection, smoke plume analysis, and the creation of integrated hazard visualizations.
+Through hands-on analysis, you will work with both near real-time data and post-processed remotely-sensed satellite products. The integration of these datasets shows how emergency managers can use publicly-available data to support evacuation decisions and understand hazard conditions. You will also learn key techniques for processing and visualizing spatial data, including clustering algorithms for fire perimeter detection, smoke plume analysis, and the creation of integrated hazard visualizations.
 
 This lesson emphasizes practical applications of remote sensing data for emergency management, while also exploring the strengths and limitations of different satellite products. By analyzing the Yellowknife evacuation, you will gain experience with workflows that can be applied to other wildfire events and natural hazards.
 
-::: {.callout-warning}
+::: callout-warning
 ## Preface: A Note on Data Interpretation and Emergency Management
 
 This lesson uses real data from an evacuation that impacted thousands of residents. While we focus on technical analysis, it's important to remember that wildfire evacuation decisions involve many factors beyond what can be captured in satellite data. The workflows demonstrated here are meant to complement, not replace, the expertise of emergency managers, fire behavior specialists, and local authorities.
 
-The integration of multiple data sources can provide valuable insights, but satellite data has limitations:
-- Cloud cover can obstruct observations
-- Temporal and spatial resolution may miss important changes
-- Data latency may affect real-time decision making
-- Local conditions may differ from satellite-based measurements
+The integration of multiple data sources can provide valuable insights, but satellite data has limitations: - Cloud cover can obstruct observations - Temporal and spatial resolution may miss important changes - Data latency may affect real-time decision making - Local conditions may differ from satellite-based measurements
 
 Always consider these limitations when using remote sensing data to support emergency management decisions.
 :::
@@ -34,36 +31,37 @@ After completing this lesson, students will be able to:
 
 ### Technical Competencies
 
-- Configure and authenticate API access to multiple NASA Earth data products
-- Process and harmonize multi-source remote sensing data using R's spatial packages (sf, terra, stars)
-- Implement spatial analysis workflows combining vector and raster data for wildfire assessment
-- Create publication-quality static visualizations and basic interactive maps of wildfire impacts
+-   Configure and authenticate API access to multiple NASA Earth data products
+-   Process and harmonize multi-source remote sensing data using R's spatial packages (sf, terra, stars)
+-   Implement spatial analysis workflows combining vector and raster data for wildfire assessment
+-   Create publication-quality static visualizations and basic interactive maps of wildfire impacts
 
 ### Analytical Skills
 
-- Evaluate the progression and impact of wildfires using multiple remote sensing products
-- Assess infrastructure vulnerability and damage using spatial analysis techniques
-- Integrate multiple spatial datasets to conduct a comprehensive wildfire impact assessment
-- Critical analyze the strengths and limitations of different remote sensing products for fire analysis
+-   Evaluate the progression and impact of wildfires using multiple remote sensing products
+-   Assess infrastructure vulnerability and damage using spatial analysis techniques
+-   Integrate multiple spatial datasets to conduct a comprehensive wildfire impact assessment
+-   Critical analyze the strengths and limitations of different remote sensing products for fire analysis
 
 ### Practical Applications
 
-- Apply real-world workflows for accessing and processing wildfire-related remote sensing data
-- Demonstrate best practices for reproducible spatial analysis in R
-- Implement methods for combining satellite-derived fire products with infrastructure data
-- Document and communicate spatial analysis results effectively
+-   Apply real-world workflows for accessing and processing wildfire-related remote sensing data
+-   Demonstrate best practices for reproducible spatial analysis in R
+-   Implement methods for combining satellite-derived fire products with infrastructure data
+-   Document and communicate spatial analysis results effectively
 
 ### Advanced Understanding (Optional Extensions)
-- Develop automated workflows for multi-sensor data integration
-- Apply uncertainty assessment in wildfire impact analysis
-- Create advanced visualizations for temporal pattern analysis
-- Implement validation approaches using multiple data sources
+
+-   Develop automated workflows for multi-sensor data integration
+-   Apply uncertainty assessment in wildfire impact analysis
+-   Create advanced visualizations for temporal pattern analysis
+-   Implement validation approaches using multiple data sources
 
 ## Introduction
 
 ### Wildfires and the 2023 Season
 
-Wildfires are a natural and essential component of North American forest ecosystems, particularly in the boreal forests that stretch across Canada. These fires play a crucial role in maintaining forest health, recycling nutrients, and promoting biodiversity. However, climate change has begun to alter historical fire regimes, leading to more frequent, intense, and extensive wildfires that pose increasing challenges to both ecosystems and human communities.
+Wildfires are a natural and essential component of North American forest ecosystems, particularly in the boreal forests that stretch across Canada [@girardin2010; @johnson2001; @zackrisson1996]. These fires play a crucial role in maintaining forest health, recycling nutrients, and promoting biodiversity. However, climate change has begun to alter historical fire regimes, leading to more frequent, intense, and extensive wildfires that pose increasing challenges to both ecosystems and human communities.
 
 In Canada's boreal forests, fire has historically occurred in natural cycles ranging from 50 to 200 years, helping to maintain a mosaic of forest ages and compositions. Indigenous peoples have long understood and managed these fire regimes, using controlled burns as a land management tool. Today, changing climate conditions are disrupting these traditional patterns. Longer fire seasons, increased lightning activity, and more severe drought conditions are creating unprecedented fire behavior and risk scenarios.
 
@@ -116,21 +114,21 @@ The Yellowknife wildfire crisis of 2023 serves as an ideal case study for demons
 
 Before beginning, please note that this lesson uses the R programming language and the following R packages:
 
-- [`sf`](https://r-spatial.github.io/sf/): Essential for handling vector spatial data and manipulation of geographic objects.
-- [`stars`](https://r-spatial.github.io/stars/): Extends spatial functionality to handle raster data and spatiotemporal arrays, particularly useful for satellite imagery.
-- [`osmdata`](https://docs.ropensci.org/osmdata/): Provides interface for OpenStreetMap data, enabling programmatic access to road networks and infrastructure data.
-- [`aws.s3`](https://github.com/cloudyr/aws.s3): Enables direct access to AWS S3 storage, essential for retrieving GOES satellite data.
-- [`httr2`](https://httr2.r-lib.org/): Modern HTTP client for R, used for making API requests and handling responses.
-- [`ncdf4`](https://cirrus.ucsd.edu/~pierce/ncdf/): Interface to Unidata netCDF format, crucial for working with satellite data files.
-- [`concaveman`](https://github.com/joelgombin/concaveman): Implements concave hull algorithms for creating boundaries around point sets.
-- [`dbscan`](https://cran.r-project.org/web/packages/dbscan/): Provides density-based clustering algorithms for spatial point pattern analysis.
-- [`dplyr`](https://dplyr.tidyverse.org/): Part of tidyverse, essential for data manipulation and transformation.
-- [`ggplot2`](https://ggplot2.tidyverse.org/): Creates elegant data visualizations and is the primary plotting tool in this lesson.
-- [`tidyterra`](https://dieghernan.github.io/tidyterra/): Bridges terra spatial objects with tidyverse tools, particularly for visualization.
-- [`terra`](https://rspatial.org/terra/): Advanced package for spatial data handling, particularly raster data processing.
-- [`knitr`](https://yihui.org/knitr/): Generates dynamic reports and handles table formatting.
-- [`kableExtra`](https://haozhu233.github.io/kableExtra/): Enhances table formatting capabilities with additional styling options.
-- [`units`](https://r-quantities.github.io/units/): Handles unit conversions and dimensional analysis in spatial calculations.
+-   [`sf`](https://r-spatial.github.io/sf/): Essential for handling vector spatial data and manipulation of geographic objects.
+-   [`stars`](https://r-spatial.github.io/stars/): Extends spatial functionality to handle raster data and spatiotemporal arrays, particularly useful for satellite imagery.
+-   [`osmdata`](https://docs.ropensci.org/osmdata/): Provides interface for OpenStreetMap data, enabling programmatic access to road networks and infrastructure data.
+-   [`aws.s3`](https://github.com/cloudyr/aws.s3): Enables direct access to AWS S3 storage, essential for retrieving GOES satellite data.
+-   [`httr2`](https://httr2.r-lib.org/): Modern HTTP client for R, used for making API requests and handling responses.
+-   [`ncdf4`](https://cirrus.ucsd.edu/~pierce/ncdf/): Interface to Unidata netCDF format, crucial for working with satellite data files.
+-   [`concaveman`](https://github.com/joelgombin/concaveman): Implements concave hull algorithms for creating boundaries around point sets.
+-   [`dbscan`](https://cran.r-project.org/web/packages/dbscan/): Provides density-based clustering algorithms for spatial point pattern analysis.
+-   [`dplyr`](https://dplyr.tidyverse.org/): Part of tidyverse, essential for data manipulation and transformation.
+-   [`ggplot2`](https://ggplot2.tidyverse.org/): Creates elegant data visualizations and is the primary plotting tool in this lesson.
+-   [`tidyterra`](https://dieghernan.github.io/tidyterra/): Bridges terra spatial objects with tidyverse tools, particularly for visualization.
+-   [`terra`](https://rspatial.org/terra/): Advanced package for spatial data handling, particularly raster data processing.
+-   [`knitr`](https://yihui.org/knitr/): Generates dynamic reports and handles table formatting.
+-   [`kableExtra`](https://haozhu233.github.io/kableExtra/): Enhances table formatting capabilities with additional styling options.
+-   [`units`](https://r-quantities.github.io/units/): Handles unit conversions and dimensional analysis in spatial calculations.
 
 If you'd like to learn more about the functions used in this lesson, you can refer to the documentation on their respective websites.
 
@@ -207,21 +205,18 @@ ggplot2::ggplot() +
   ggplot2::coord_sf()
 ```
 
-This boundary will serve as our primary reference for analyzing the wildfire impacts around Yellowknife. Throughout our analysis, we'll create different buffer zones around this boundary to capture various aspects of the fire event, such as:
-- A 50km buffer for analyzing local fire detections
-- A 500km buffer for analyzing smoke plume dispersion
-- Custom buffers for specific analyses of evacuation routes and infrastructure
+This boundary will serve as our primary reference for analyzing the wildfire impacts around Yellowknife. Throughout our analysis, we'll create different buffer zones around this boundary to capture various aspects of the fire event, such as: - A 50km buffer for analyzing local fire detections - A 500km buffer for analyzing smoke plume dispersion - Custom buffers for specific analyses of evacuation routes and infrastructure
 
 ::: {.callout-tip style="color: #5a7a2b;"}
 ### Data Science Review
 
 When working with spatial data it's important to understand a few key concepts:
 
-1. **Coordinate Reference Systems (CRS)**: Different spatial datasets might use different coordinate systems. The Yellowknife boundary data comes in UTM Zone 11N (EPSG:26911), which is appropriate for this region of Canada.
+1.  **Coordinate Reference Systems (CRS)**: Different spatial datasets might use different coordinate systems. The Yellowknife boundary data comes in UTM Zone 11N (EPSG:26911), which is appropriate for this region of Canada.
 
-2. **Spatial Objects in R**: We're using the `sf` (Simple Features) package, which is the modern standard for handling vector spatial data in R. The `sf` package integrates well with the tidyverse and provides efficient tools for spatial operations.
+2.  **Spatial Objects in R**: We're using the `sf` (Simple Features) package, which is the modern standard for handling vector spatial data in R. The `sf` package integrates well with the tidyverse and provides efficient tools for spatial operations.
 
-3. **Data Formats**: Spatial data comes in many formats. Here we're working with a geodatabase (.gdb), but you might also encounter shapefiles (.shp), GeoJSON, and other formats. The `sf` package can handle most common spatial data formats.
+3.  **Data Formats**: Spatial data comes in many formats. Here we're working with a geodatabase (.gdb), but you might also encounter shapefiles (.shp), GeoJSON, and other formats. The `sf` package can handle most common spatial data formats.
 :::
 
 ### Fire Detection
@@ -305,14 +300,14 @@ daily_stats <- firms_points |>
   )
 ```
 
-::: {.callout-note}
+::: callout-note
 ##### Understanding Fire Radiative Power (FRP)
 
 Fire Radiative Power (FRP) is a measure of the rate of radiant heat output from a fire, measured in megawatts (MW). Higher FRP values generally indicate more intense fires. The VIIRS sensor can detect:
 
-- Smaller/cooler fires: ~1-10 MW
-- Moderate fires: ~10-100 MW
-- Large/intense fires: >100 MW
+-   Smaller/cooler fires: \~1-10 MW
+-   Moderate fires: \~10-100 MW
+-   Large/intense fires: \>100 MW
 
 FRP helps fire managers assess fire intensity and potential severity, though it's important to note that factors like cloud cover can affect detection capabilities.
 :::
@@ -444,18 +439,20 @@ knitr::kable(stats_df,
 
 Several key data science concepts are demonstrated in this analysis:
 
-1. **API Interaction**: We use the FIRMS API to programmatically access fire detection data, demonstrating how to construct and execute API requests.
+1.  **API Interaction**: We use the FIRMS API to programmatically access fire detection data, demonstrating how to construct and execute API requests.
 
-2. **Spatial Data Processing**: The analysis shows how to:
-   - Transform between coordinate systems
-   - Create spatial buffers
-   - Join spatial and temporal data
-   
-3. **Data Visualization Best Practices**:
-   - Using appropriate color scales for fire intensity
-   - Including reference lines for key events (evacuation date)
-   - Providing clear labels and legends
-   - Creating multi-panel visualizations for different aspects of the data
+2.  **Spatial Data Processing**: The analysis shows how to:
+
+    -   Transform between coordinate systems
+    -   Create spatial buffers
+    -   Join spatial and temporal data
+
+3.  **Data Visualization Best Practices**:
+
+    -   Using appropriate color scales for fire intensity
+    -   Including reference lines for key events (evacuation date)
+    -   Providing clear labels and legends
+    -   Creating multi-panel visualizations for different aspects of the data
 :::
 
 ##### Fire Complex Perimeters
@@ -506,7 +503,7 @@ create_fire_perimeters <- function(points,
 }
 ```
 
-::: {.callout-note}
+::: callout-note
 ##### Understanding Concave Hulls
 
 A concave hull (also known as a concave closure or α-shape) provides a more realistic boundary around a set of points compared to a convex hull. While a convex hull creates the smallest convex polygon that contains all points, a concave hull can "wrap" more tightly around the points, capturing the true shape of the point distribution. This is particularly useful for fire perimeter mapping, where we want to represent the actual extent of fire activity rather than just the outer bounds.
@@ -611,12 +608,12 @@ create_clustered_perimeters <- function(points,
 
 DBSCAN (Density-Based Spatial Clustering of Applications with Noise) is particularly well-suited for identifying fire complexes because it:
 
-1. Can find clusters of arbitrary shape
-2. Automatically determines the number of clusters
-3. Can identify outliers as noise
-4. Uses two intuitive parameters:
-   - eps: The maximum distance between two points to be considered neighbors
-   - minPts: The minimum number of points to form a cluster
+1.  Can find clusters of arbitrary shape
+2.  Automatically determines the number of clusters
+3.  Can identify outliers as noise
+4.  Uses two intuitive parameters:
+    -   eps: The maximum distance between two points to be considered neighbors
+    -   minPts: The minimum number of points to form a cluster
 :::
 
 Now we can create clustered perimeters for all dates and visualize the progression:
@@ -808,22 +805,23 @@ for (date_type in unique(comparison_clusters$type)) {
 
 When analyzing fire complexes, several key metrics help us understand the fire situation:
 
-1. **Number of Distinct Complexes**: Multiple fire complexes can indicate either natural fire spread patterns or multiple ignition sources.
+1.  **Number of Distinct Complexes**: Multiple fire complexes can indicate either natural fire spread patterns or multiple ignition sources.
 
-2. **Complex Size**: The size of individual complexes helps fire managers assess resource needs and potential threats.
+2.  **Complex Size**: The size of individual complexes helps fire managers assess resource needs and potential threats.
 
-3. **Complex Distribution**: The spatial arrangement of complexes relative to infrastructure and communities informs evacuation planning.
+3.  **Complex Distribution**: The spatial arrangement of complexes relative to infrastructure and communities informs evacuation planning.
 
-4. **Temporal Progression**: Understanding how complexes grow and merge over time helps predict future fire behavior.
+4.  **Temporal Progression**: Understanding how complexes grow and merge over time helps predict future fire behavior.
 
 ::: {.callout-tip style="color: #9f0b64;"}
 ##### Knowledge Check: FIRMS
+
 What is the primary advantage of FIRMS data for wildfire monitoring?
 
-a) It provides weather forecasts for fire-prone areas
-b) It delivers near real-time fire detections within 3 hours of satellite observation
-c) It measures ground-level temperature
-d) It predicts future fire spread
+a)  It provides weather forecasts for fire-prone areas
+b)  It delivers near real-time fire detections within 3 hours of satellite observation
+c)  It measures ground-level temperature
+d)  It predicts future fire spread
 :::
 
 #### VIIRS Burned Area
@@ -847,13 +845,10 @@ print("VIIRS Burned Area files to process:")
 print(viirs_files)
 ```
 
-::: {.callout-note}
+::: callout-note
 ##### Understanding VIIRS Burned Area Data
 
-The VNP64A1 product contains several data layers, but the primary "Burn Date" layer records the day of year when a burn was detected. Special values include:
-- 0: Unburned
-- -1: Unmapped
-- -2: Water
+The VNP64A1 product contains several data layers, but the primary "Burn Date" layer records the day of year when a burn was detected. Special values include: - 0: Unburned - -1: Unmapped - -2: Water
 :::
 
 Now we'll process each HDF file, extracting the burn date information:
@@ -1030,24 +1025,25 @@ print(p2)
 
 When analyzing burned areas, several key considerations help validate and interpret the results:
 
-1. **Temporal Progression**: The timing of detected burns should generally align with active fire detections
+1.  **Temporal Progression**: The timing of detected burns should generally align with active fire detections
 
-2. **Spatial Agreement**: Burn scars should correspond with areas where we detected active fires
+2.  **Spatial Agreement**: Burn scars should correspond with areas where we detected active fires
 
-3. **Resolution Effects**: The 500m resolution of the burned area product means small fires might be missed
+3.  **Resolution Effects**: The 500m resolution of the burned area product means small fires might be missed
 
-4. **Edge Effects**: Areas near the edge of satellite swaths or scene boundaries may show artificial patterns
+4.  **Edge Effects**: Areas near the edge of satellite swaths or scene boundaries may show artificial patterns
 
 The combination of active fire detections (FIRMS) and burned area products (VNP64A1) provides a more complete picture of fire impacts than either product alone.
 
 ::: {.callout-tip style="color: #9f0b64;"}
 ##### Knowledge Check: VIIRS Burned Area
+
 Why is the VIIRS Burned Area product (VNP64A1) complementary to FIRMS data?
 
-a) It provides higher temporal resolution
-b) It measures ground temperature
-c) It detects changes in surface reflectance to identify burned areas, even those that may have been missed by active fire detection
-d) It predicts where fires will occur
+a)  It provides higher temporal resolution
+b)  It measures ground temperature
+c)  It detects changes in surface reflectance to identify burned areas, even those that may have been missed by active fire detection
+d)  It predicts where fires will occur
 :::
 
 ### GOES-18 Smoke Plume Analysis
@@ -1088,13 +1084,10 @@ files_df <- aws.s3::get_bucket_df(
 )
 ```
 
-::: {.callout-note}
+::: callout-note
 #### Understanding GOES Data Organization
 
-GOES satellite data follows a consistent naming convention:
-- ABI-L2-AODF: Product name (Aerosol Optical Depth Full Disk)
-- Year/DayOfYear/Hour: Temporal organization
-- Multiple files per hour represent different scan times
+GOES satellite data follows a consistent naming convention: - ABI-L2-AODF: Product name (Aerosol Optical Depth Full Disk) - Year/DayOfYear/Hour: Temporal organization - Multiple files per hour represent different scan times
 :::
 
 Now we'll download and read the most recent file for our selected timestamp:
@@ -1155,12 +1148,7 @@ ggplot2::ggplot() +
 ::: {.callout-tip style="color: #5a7a2b;"}
 #### Interpreting AOD Values
 
-Aerosol Optical Depth values can be roughly interpreted as:
-- 0.0-0.1: Clear sky
-- 0.1-0.3: Light haze
-- 0.3-0.5: Moderate haze
-- 0.5-1.0: Heavy haze
-- >1.0: Very heavy smoke/haze
+Aerosol Optical Depth values can be roughly interpreted as: - 0.0-0.1: Clear sky - 0.1-0.3: Light haze - 0.3-0.5: Moderate haze - 0.5-1.0: Heavy haze - \>1.0: Very heavy smoke/haze
 
 Higher values indicate more particles in the atmospheric column, suggesting thicker smoke plumes and potentially worse air quality.
 :::
@@ -1268,12 +1256,10 @@ get_aod_data <- function(date, hour) {
 }
 ```
 
-::: {.callout-note}
+::: callout-note
 #### GOES Data Processing Tips
-The GOES AWS bucket provides the most recent 7 days of data at no cost. When downloading multiple files:
-- Use appropriate time intervals to avoid redundant data
-- Consider file size limitations and download times
-- Remember that UTC timestamps are used for data organization
+
+The GOES AWS bucket provides the most recent 7 days of data at no cost. When downloading multiple files: - Use appropriate time intervals to avoid redundant data - Consider file size limitations and download times - Remember that UTC timestamps are used for data organization
 :::
 
 We'll also need a function to calculate statistics for our area of interest:
@@ -1478,11 +1464,7 @@ knitr::kable(who_thresholds,
 ::: {.callout-tip style="color: #5a7a2b;"}
 #### Understanding Temporal AOD Patterns
 
-When interpreting temporal AOD patterns, consider:
-1. Diurnal cycles - smoke often settles overnight and lifts during the day
-2. Wind patterns - can cause rapid changes in local smoke conditions
-3. Cloud interference - can cause gaps in the data
-4. Vertical distribution - AOD measures the entire column, not just surface conditions
+When interpreting temporal AOD patterns, consider: 1. Diurnal cycles - smoke often settles overnight and lifts during the day 2. Wind patterns - can cause rapid changes in local smoke conditions 3. Cloud interference - can cause gaps in the data 4. Vertical distribution - AOD measures the entire column, not just surface conditions
 :::
 
 #### Visualizing the Maximum Plume Spread
@@ -1539,12 +1521,10 @@ analyze_plume <- function(date, hour, plume_buffer) {
 }
 ```
 
-::: {.callout-note}
+::: callout-note
 #### Quantifying Smoke Extent
 
-We classify smoke coverage into two categories:
-- Moderate smoke: AOD > 1 (significant visibility reduction)
-- Heavy smoke: AOD > 2 (severe air quality impacts)
+We classify smoke coverage into two categories: - Moderate smoke: AOD \> 1 (significant visibility reduction) - Heavy smoke: AOD \> 2 (severe air quality impacts)
 
 The area calculation (0.0081 km² per pixel) is based on the GOES-R ABI resolution at nadir.
 :::
@@ -1702,11 +1682,7 @@ knitr::kable(stats_summary,
 ::: {.callout-tip style="color: #5a7a2b;"}
 #### Interpreting Plume Extent
 
-When analyzing smoke plume extent:
-1. Consider both intensity (AOD values) and spatial coverage
-2. Remember that AOD measures total column aerosol - smoke may be at various heights
-3. Cloud cover can create gaps in the data
-4. The 500km analysis radius helps capture regional-scale impacts
+When analyzing smoke plume extent: 1. Consider both intensity (AOD values) and spatial coverage 2. Remember that AOD measures total column aerosol - smoke may be at various heights 3. Cloud cover can create gaps in the data 4. The 500km analysis radius helps capture regional-scale impacts
 :::
 
 ### GOES-18 Wind Patterns
@@ -1715,11 +1691,7 @@ Understanding atmospheric transport is crucial for predicting smoke impacts duri
 
 Traditionally, smoke transport has been monitored through a combination of ground-based weather stations and atmospheric models. However, these methods can have significant limitations in remote regions like the Northwest Territories, where weather stations are sparse and model validation data is limited. Satellite-derived wind products help fill these gaps by providing broad spatial coverage and frequent updates. The GOES-18 Derived Motion Winds (DMW) product is particularly valuable as it provides wind measurements at multiple atmospheric levels by tracking the movement of features (such as clouds and water vapor) in successive satellite images.
 
-For our analysis, we'll focus on winds during the period of peak smoke intensity, combining GOES-18 DMW data with our aerosol optical depth measurements. This integration helps us understand:
-1. The atmospheric conditions that influenced smoke transport
-2. Potential evacuation routes that may have been impacted
-3. Areas where convergent winds may have concentrated smoke
-4. The broader regional transport patterns that affected air quality across the Northwest Territories
+For our analysis, we'll focus on winds during the period of peak smoke intensity, combining GOES-18 DMW data with our aerosol optical depth measurements. This integration helps us understand: 1. The atmospheric conditions that influenced smoke transport 2. Potential evacuation routes that may have been impacted 3. Areas where convergent winds may have concentrated smoke 4. The broader regional transport patterns that affected air quality across the Northwest Territories
 
 First, let's create a function to retrieve and process wind data.
 
@@ -1800,14 +1772,10 @@ get_wind_data <- function(date, hour) {
 }
 ```
 
-::: {.callout-note}
+::: callout-note
 #### Wind Analysis
 
-The GOES-18 Derived Motion Winds (DMW) product:
-- Tracks features in successive satellite images to derive wind vectors
-- Provides wind speed and direction at multiple atmospheric levels
-- Includes quality flags to identify reliable measurements
-- Helps understand atmospheric transport patterns
+The GOES-18 Derived Motion Winds (DMW) product: - Tracks features in successive satellite images to derive wind vectors - Provides wind speed and direction at multiple atmospheric levels - Includes quality flags to identify reliable measurements - Helps understand atmospheric transport patterns
 :::
 
 To visualize wind vectors, we need to convert speed and direction into vector components:
@@ -1947,23 +1915,17 @@ knitr::kable(wind_stats,
 
 #### Interpreting Wind Patterns
 
-When analyzing wind vectors:
-1. Vector length indicates wind speed
-2. Vector direction shows where the wind is blowing towards
-3. Color scaling highlights areas of stronger winds
-4. Pattern variations can indicate:
-   - Convergence zones where smoke may accumulate
-   - Transport corridors for smoke movement
-   - Areas of atmospheric mixing
+When analyzing wind vectors: 1. Vector length indicates wind speed 2. Vector direction shows where the wind is blowing towards 3. Color scaling highlights areas of stronger winds 4. Pattern variations can indicate: - Convergence zones where smoke may accumulate - Transport corridors for smoke movement - Areas of atmospheric mixing
 
 ::: {.callout-tip style="color: #9f0b64;"}
 #### Knowledge Check: GOES Wind Analysis
+
 How does the GOES-18 Derived Motion Winds (DMW) product determine wind patterns?
 
-a) Using ground-based weather stations
-b) Through computer modeling
-c) By tracking the movement of features like clouds in successive satellite images
-d) By measuring atmospheric pressure
+a)  Using ground-based weather stations
+b)  Through computer modeling
+c)  By tracking the movement of features like clouds in successive satellite images
+d)  By measuring atmospheric pressure
 :::
 
 ### Evacuation Route Analysis
@@ -1990,12 +1952,12 @@ evac_route <- osmdata::opq(bbox = bbox_wgs84) |>
   osmdata::osmdata_sf()
 ```
 
-::: {.callout-note}
+::: callout-note
 #### OpenStreetMap Road Classifications
-- motorway: highest grade highways
-- trunk: major arterial routes
-- primary: major regional routes
-In the Northwest Territories, most intercity routes are classified as trunk or primary roads.
+
+-   motorway: highest grade highways
+-   trunk: major arterial routes
+-   primary: major regional routes In the Northwest Territories, most intercity routes are classified as trunk or primary roads.
 :::
 
 Now we'll filter for our specific evacuation routes:
@@ -2050,20 +2012,17 @@ print(p4_local)
 
 #### Evacuation Route Considerations
 
-When analyzing evacuation routes, several factors are important:
-1. Limited Options: In northern communities, there are often few alternate routes
-2. Distance: Evacuees may need to travel long distances to reach safety
-3. Vulnerability: Routes can be impacted by both fire and smoke
-4. Capacity: Limited routes may face congestion during mass evacuation
+When analyzing evacuation routes, several factors are important: 1. Limited Options: In northern communities, there are often few alternate routes 2. Distance: Evacuees may need to travel long distances to reach safety 3. Vulnerability: Routes can be impacted by both fire and smoke 4. Capacity: Limited routes may face congestion during mass evacuation
 
 ::: {.callout-tip style="color: #9f0b64;"}
 #### Knowledge Check: Evacuation Routes
+
 Why is OpenStreetMap particularly valuable for analyzing evacuation routes in remote regions like Northwest Territories?
 
-a) It provides real-time traffic updates
-b) It includes detailed elevation data
-c) It offers more up-to-date and detailed road networks through crowdsourced local knowledge
-d) It shows historical road conditions
+a)  It provides real-time traffic updates
+b)  It includes detailed elevation data
+c)  It offers more up-to-date and detailed road networks through crowdsourced local knowledge
+d)  It shows historical road conditions
 :::
 
 ### Integrated Evacuation Conditions
@@ -2108,14 +2067,10 @@ fire_perims <- create_clustered_perimeters(firms_points_peak,
                                           date = as.Date(peak_time$datetime))
 ```
 
-::: {.callout-note}
+::: callout-note
 #### Understanding the Integrated Visualization
 
-The following visualization combines several key elements:
-- Smoke plume extent (AOD values)
-- Active fire perimeters
-- Wind vectors showing transport patterns
-- Primary evacuation routes
+The following visualization combines several key elements: - Smoke plume extent (AOD values) - Active fire perimeters - Wind vectors showing transport patterns - Primary evacuation routes
 
 This integration helps visualize the multiple hazards evacuees faced.
 :::
@@ -2186,37 +2141,35 @@ print(p4_integrated)
 
 When interpreting this integrated view, consider:
 
-1. **Route Vulnerability**: 
-   - Proximity of fires to evacuation routes
-   - Smoke intensity along evacuation corridors
-   - Wind patterns that could drive fire or smoke toward routes
-
-2. **Temporal Factors**:
-   - This represents conditions at peak smoke intensity
-   - Conditions likely varied throughout the evacuation period
-   - Wind patterns influenced both fire spread and smoke transport
-
-3. **Spatial Relationships**:
-   - Limited evacuation options (single main route)
-   - Regional extent of smoke impacts
-   - Potential for route closures due to fire proximity
-
-4. **Evacuation Management Implications**:
-   - Need for real-time monitoring of multiple hazards
-   - Importance of alternative evacuation plans
-   - Value of integrated spatial analysis for decision support
+1.  **Route Vulnerability**:
+    -   Proximity of fires to evacuation routes
+    -   Smoke intensity along evacuation corridors
+    -   Wind patterns that could drive fire or smoke toward routes
+2.  **Temporal Factors**:
+    -   This represents conditions at peak smoke intensity
+    -   Conditions likely varied throughout the evacuation period
+    -   Wind patterns influenced both fire spread and smoke transport
+3.  **Spatial Relationships**:
+    -   Limited evacuation options (single main route)
+    -   Regional extent of smoke impacts
+    -   Potential for route closures due to fire proximity
+4.  **Evacuation Management Implications**:
+    -   Need for real-time monitoring of multiple hazards
+    -   Importance of alternative evacuation plans
+    -   Value of integrated spatial analysis for decision support
 :::
 
 This comprehensive visualization demonstrates the complex challenges faced during the Yellowknife evacuation. The combination of active fires, extensive smoke plumes, and limited evacuation routes created a particularly challenging scenario for both emergency managers and evacuees. The wind patterns during this period were especially critical, as they influenced both the movement of smoke and the potential for fire spread toward evacuation routes.
 
 ::: {.callout-tip style="color: #9f0b64;"}
 #### Knowledge Check: Comprehensive Analysis
+
 Which combination of data sources provides the most complete understanding of evacuation conditions during a wildfire event?
 
-a) FIRMS data and weather forecasts only
-b) Wind patterns and smoke plumes only
-c) Integration of fire detections, smoke plumes, wind patterns, and evacuation routes
-d) Burned area analysis only
+a)  FIRMS data and weather forecasts only
+b)  Wind patterns and smoke plumes only
+c)  Integration of fire detections, smoke plumes, wind patterns, and evacuation routes
+d)  Burned area analysis only
 :::
 
 ## Conclusion
@@ -2225,10 +2178,10 @@ This lesson demonstrated how multiple remote sensing products can be integrated 
 
 This case study illustrates the vital role of Earth observation data in:
 
-* Supporting emergency management decisions
-* Documenting and analyzing extreme events
-* Understanding the progression of natural disasters
-* Validating ground-based observations with satellite data
+-   Supporting emergency management decisions
+-   Documenting and analyzing extreme events
+-   Understanding the progression of natural disasters
+-   Validating ground-based observations with satellite data
 
 The methods demonstrated here can be applied to other wildfire events or adapted for different types of natural hazards where multiple spatial datasets need to be integrated for comprehensive analysis.
 
@@ -2236,8 +2189,8 @@ The methods demonstrated here can be applied to other wildfire events or adapted
 
 While this analysis focused on basic integration of available datasets, future work could:
 
-* Include additional data sources such as weather conditions and fuel moisture
-* Develop automated processing chains for near-real-time analysis
-* Incorporate ground validation data
-* Analyze longer time series to understand historical context
-* Integrate socioeconomic data to assess community impacts
+-   Include additional data sources such as weather conditions and fuel moisture
+-   Develop automated processing chains for near-real-time analysis
+-   Incorporate ground validation data
+-   Analyze longer time series to understand historical context
+-   Integrate socioeconomic data to assess community impacts
