@@ -139,6 +139,34 @@ The `ncdf4` package is essential for working with satellite data files, while `c
 `terra` provides advanced spatial data processing capabilities, particularly for raster analysis. `knitr` and `kableExtra` handle report generation and table formatting, while `units` ensures proper handling of physical quantities and conversions.
 
 Make sure these packages are installed before you begin working with the code in this document.
+
+You can install the required packages using R:
+
+```{r}
+# List of required packages
+required_packages <- c(
+  "sf", "stars", "osmdata", "aws.s3", "httr2", "ncdf4",
+  "concaveman", "dbscan", "dplyr", "ggplot2", "tidyterra",
+  "terra", "knitr", "kableExtra", "units", "maptiles"
+)
+
+# Function to check and install missing packages
+install_if_missing <- function(packages) {
+  installed <- installed.packages()
+  for (pkg in packages) {
+    if (!pkg %in% rownames(installed)) {
+      message(sprintf("Installing package: %s", pkg))
+      install.packages(pkg, dependencies = TRUE)
+    } else {
+      message(sprintf("Package %s is already installed.", pkg))
+    }
+  }
+}
+
+# Run the function
+install_if_missing(required_packages)
+```
+
 :::
 
 ### Initial Data Processing & Study Area Definition
@@ -173,8 +201,7 @@ utils::unzip("data/yellowknife_boundary.zip",
 
 # Read the municipal boundary layer
 yk_boundary <- sf::st_read(
-  "data/yellowknife_boundaries/yk_Municipal_Boundary_gdb.gdb", 
-  layer = "yk_municipal_boundary"
+  "data/yellowknife_boundaries/yk_municipal_boundary.shp"
 ) |> 
   identity()
 ```
@@ -254,7 +281,7 @@ Next, we'll query the FIRMS API to get fire detections for our area. The FIRMS A
 # Get FIRMS data
 firms_url <- sprintf(
   "https://firms.modaps.eosdis.nasa.gov/api/area/csv/%s/VIIRS_NOAA20_NRT/%s,%s,%s,%s/10/2023-08-10",
-  Sys.getenv("FIRMS_API_KEY"),
+  "FIRMS_API_KEY",
   bbox["xmin"], bbox["ymin"],
   bbox["xmax"], bbox["ymax"]
 )
@@ -835,7 +862,7 @@ First, let's locate and read our VIIRS burned area files. We'll focus on files f
 ```{r}
 # Get a list of VIIRS Burned Area files
 viirs_files <- list.files(
-  "data/VNP64A1.002/VNP64A1_002-20241031_164531/",
+  "data/VNP64A1.002/",
   pattern = "A2023(213|244).*\\.hdf$",
   full.names = TRUE
 )
@@ -890,8 +917,8 @@ Next, we'll combine our processed tiles into a single mosaic and align it with o
 # Mosaic all tiles together in one step
 burn_mosaic <- terra::mosaic(burn_dates_list[[1]], 
                              burn_dates_list[[2]], 
-                             burn_dates_list[[3]], 
-                             burn_dates_list[[4]], 
+                            #  burn_dates_list[[3]], 
+                            #  burn_dates_list[[4]], 
                              fun = "last")  # Use most recent valid observation
 
 # Reproject to match our other data (EPSG:4326)
@@ -1952,13 +1979,14 @@ evac_route <- osmdata::opq(bbox = bbox_wgs84) |>
   osmdata::osmdata_sf()
 ```
 
-::: callout-note
+::: 
 #### OpenStreetMap Road Classifications
 
 -   motorway: highest grade highways
 -   trunk: major arterial routes
 -   primary: major regional routes In the Northwest Territories, most intercity routes are classified as trunk or primary roads.
 :::
+
 
 Now we'll filter for our specific evacuation routes:
 

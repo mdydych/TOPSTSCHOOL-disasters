@@ -4,3 +4,14 @@
 .Ruserdata
 
 /.quarto/
+data/yellowknife_boundary.zip
+data/VNP64A1.002/VNP64A1.A2023213.h12v02.002.2023276103300.hdf
+data/VNP64A1.002/VNP64A1.A2023244.h12v02.002.2023312150240.hdf
+data/yellowknife_boundaries/yk_municipal_boundary.dbf
+data/yellowknife_boundaries/yk_municipal_boundary.prj
+data/yellowknife_boundaries/yk_municipal_boundary.shp
+data/yellowknife_boundaries/yk_municipal_boundary.shx
+data/yk_Municipal_Boundary_shp/yk_municipal_boundary.dbf
+data/yk_Municipal_Boundary_shp/yk_municipal_boundary.prj
+data/yk_Municipal_Boundary_shp/yk_municipal_boundary.shp
+data/yk_Municipal_Boundary_shp/yk_municipal_boundary.shx
