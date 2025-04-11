@@ -17,16 +17,14 @@ import pandas as pd
 
  We will be  focusing on is data analysis (management and analysis) and how climate change is affecting  the ecosystem in the Arctic. We can collect data by looking into the rising temperatures over the years, satellite heat map of the arctic, the melting ice, and how the Arctic’s species ecosystem is being affected. All the data that is being collected is going to connect with each other by showing the impact  that climate change is doing to the Arctic."
  
- ```{python}
+```{python}
  
 #display image from URL
 image_url = "https://www.theglobeandmail.com/resizer/v2/XOHD6ZNGBZEQ7NKJY2D32TULAE?auth=23fab6336f88534f8370296fb915d7f81eef7e904a3c8bc968e98274374e95eb&width=1200&quality=80"
-display(Image(url=image_url))
-
+print(Image(url=image_url))
 
 link_html = '<a href="https://www.theglobeandmail.com/technology/science/shrinking-polar-bears-a-barometer-for-the-climate-sensitive-north/article20904215/" target=_blank">How the effects of climate change in Arctic Canada are shrinking polar bears</a>'
-display(HTML(link_html))
-
+print(HTML(link_html))
 ```
 
 ### Key Takeaways
@@ -44,26 +42,17 @@ Climate change is a long-term change based on the earth’s temperature patters 
 
 Currently the Arctics sea ice has been showing a decrease and making the ice thinner and vulnerable. The ice is slowly going away as it ages and that can make the sea level rise. NSIDC ( National Snow and Ice data Center)gather data to provides an animation with sea ice animations for the arctic showing you how from 1979 to 2024 the Artic Sea ice is becoming smaller as time goes by. Not only the ice is melting over the years, but the sea levels are rising, and it is causing an effect on the habitat species like polar bears, seals, and walruses.
 
-```{python}
+![](https://nsidc.org/sites/default/files/images/Data/extn-09-1979-2024-arctic.gif)
 
-image_url = "https://nsidc.org/sites/default/files/images/Data/extn-09-1979-2024-arctic.gif"
-display(Image(url=image_url, width=450, height=600))
-
-link_html = '<a href="https://nsidc.org/sites/default/files/images/Data/extn-09-1979-2024-arctic.gif" target=_blank">Arctic sea ice animations, 1979 to 2024</a>'
-display(HTML(link_html))
-```
+![Arctic sea ice animations, 1979 to 2024](https://nsidc.org/sites/default/files/images/Data/extn-09-1979-2024-arctic.gif) 
 
 ###  Sea Ice 
 
 Sea ice extent is the total area of the ocean’s surface that is covered by sea ice, and it has been declining at an alarming rate. Climate.gov provided a map and a graph to show us how the ice extent has been getting smaller over the years. The median extends from 1981-2010 compared to the median extent of 1991- 2020 was smaller and you can see the outline of the ice extent shrinking. The bottom graph displays the ice extend of each September from 1979-2024. From 1979  to 1998 you can see a small increase of the sea ice extent, but it starts to drop from 2000 to 2024. This shows how the ice keeps decreasing over time because the temperature of the Arctic keeps on increasing as time goes by.
+ 
 
-```{python}
-
-image_url ="https://www.climate.gov/sites/default/files/2024-12/arctic-report-card-2024--sea-ice--2400px.jpg"
-display(Image(url=image_url, width=450, height=600))
-link_html = '<a href="https://www.climate.gov/news-features/understanding-climate/2024-arctic-report-card-documents-rapid-dramatic-change">Arctic Sea Ice Summer Extent</a>'
-display(HTML(link_html))
-```
+![](https://www.climate.gov/sites/default/files/2024-12/arctic-report-card-2024--sea-ice--2400px.jpg)
+![Arctic Sea Ice Summer Extent](https://www.climate.gov/news-features/understanding-climate/2024-arctic-report-card-documents-rapid-dramatic-change)
 
 
 ###  My Example Using a Graph Bar: 
