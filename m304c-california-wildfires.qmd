@@ -8,7 +8,7 @@ format:
 
 This lesson will focus on the environmental impact of California Wildfires, focusing on changes in land cover, vegetation loss, and air quality before, during, and after major wildfire events. Using NASA datasets such as MODIS and VIIRS, users will learn how to access, visualize, and interpret satellite imagery to assess wildfire severity and its broader implications for ecosystems, air quality, and human health. In addition to analyzing spatial data, the lesson will integrate external datasets, such as air pollution measurements, to provide a more comprehensive understanding of wildfire impacts.
 
-![](https://camo.githubusercontent.com/57bc9986a09d7d01e8698875b81255c47a3505c3d7ec261d2e39a6a7c4194164/68747470733a2f2f6865616c7468706f6c6963792d77617463682e6e6577732f77702d636f6e74656e742f75706c6f6164732f323032352f30312f53637265656e73686f742d323032352d30312d31332d3131353733362e706e67)
+![](https://healthpolicy-watch.news/wp-content/uploads/2021/08/22797348233_f28c276a0e_o-768x512.jpg)
 
 [Wildfires in Los Angeles, California](https://healthpolicy-watch.news/la-wildfires-smother-region-in-hazardous-smoke/)
 
