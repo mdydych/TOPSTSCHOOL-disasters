@@ -32,6 +32,8 @@ Module 3: Disaster datasets and use cases cover:
 
     - [Lesson 4c: Data Analysis of California Wildfires (Python)](https://ciesin-geospatial.github.io/TOPSTSCHOOL-disasters/m304c-california-wildfires.html)
 
+    - [Lesson 4d: Opening Snow Storm Data (Python)](https://ciesin-geospatial.github.io/TOPSTSCHOOL-disasters/m304d-snow-storms.html)
+
 - **More Lessons coming soon...**
 
 ::: {style="text-align: right;"}
