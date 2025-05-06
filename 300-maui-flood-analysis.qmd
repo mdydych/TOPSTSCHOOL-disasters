@@ -39,38 +39,37 @@ Heavy rains, particularly over windward and wildfire-scarred slopes, threatened 
   - Landslides in steep terrain
   - Road closures and infrastructure damage
 
-# Accessing Rainfall Data
+# Simulated precipitation data for Maui
 
-To analyze potential flood risks, we'll simulate rainfall levels across key regions of Maui. This simulation approximates data one might obtain from real-time weather APIs or NOAA rainfall gauges.
+To assess flood risk in Maui, we simulate precipitation data across six key towns. These values are inspired by NOAA rainfall records and the April 14, 2024 flood watch.
 
-```python
+```{python}
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Simulated 24-hour rainfall totals (in inches)
+# Simulated 24-hour precipitation totals (in inches)
 data = {
     'Location': ['Hana', 'Kahului', 'Lahaina', 'Makawao', 'Kihei', 'Wailuku'],
-    'Rainfall (24hr)': [2.8, 1.9, 1.4, 2.1, 1.3, 2.0]
+    'Precipitation (24hr)': [2.8, 1.9, 1.4, 2.1, 1.3, 2.0]
 }
 df = pd.DataFrame(data)
 
-# Display rainfall table
+# Display the table
 print(df)
 
 # Plot bar chart
-df.plot(kind='bar', x='Location', y='Rainfall (24hr)', color='skyblue', legend=False)
-plt.title('Simulated 24-Hour Rainfall Totals – Maui')
-plt.ylabel('Rainfall (inches)')
-plt.axhline(y=2.0, color='red', linestyle='--', label='Flood Risk Threshold')
+df.plot(kind='bar', x='Location', y='Precipitation (24hr)', color='skyblue', legend=False)
+plt.title('Simulated 24-Hour Precipitation Totals – Maui')
+plt.ylabel('Precipitation (inches)')
+plt.axhline(y=2.0, color='red', linestyle='--', label='Flash Flood Risk Threshold')
 plt.legend()
 plt.tight_layout()
 plt.show()
-```
 
 ### Interpretation
 
 - Locations like **Hana**, **Makawao**, and **Wailuku** exceed the 2-inch threshold for localized flash flooding.
-- These regions are also close to steep slopes or previously burned areas, compounding flood risk.
+- These regions are also close to steep slopes compounding flood risk.
 
 # Mapping Risk Zones (Optional Extension)
 
